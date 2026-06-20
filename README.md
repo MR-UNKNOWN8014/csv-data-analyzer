@@ -91,7 +91,6 @@ python csv_analyzer.py
 csv-data-analyzer/
 │
 ├── csv_analyzer.py          # Main script
-├── employees_sample.csv     # Sample dataset for testing (with planted outliers)
 ├── requirements.txt         # Dependencies
 ├── .gitignore
 └── README.md
@@ -111,12 +110,6 @@ Or install directly:
 ```bash
 pip install -r requirements.txt
 ```
-
----
-
-## Testing with Sample Data
-
-A sample dataset `employees_sample.csv` is included with **planted outliers** so you can immediately verify the analyzer is working:
 
 ---
 
