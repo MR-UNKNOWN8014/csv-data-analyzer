@@ -54,13 +54,13 @@ def compute_stats(series):
     stats = {
         "count": int(series.count()),
         "missing": int(series.isna().sum()),
-        "mean": round(series.mean(), 4),
-        "median": round(series.median(), 4),
-        "std": round(series.std(), 4),
-        "min": round(series.min(), 4),
-        "max": round(series.max(), 4),
-        "q1": round(series.quantile(0.25), 4),
-        "q3": round(series.quantile(0.75), 4),
+        "mean": round(float(series.mean()), 4),
+        "median": round(float(series.median()), 4),
+        "std": round(float(series.std()), 4),
+        "min": round(float(series.min()), 4),
+        "max": round(float(series.max()), 4),
+        "q1": round(float(series.quantile(0.25)), 4),
+        "q3": round(float(series.quantile(0.75)), 4),
     }
     stats["iqr"] = round(stats["q3"] - stats["q1"], 4)
     return stats
@@ -190,6 +190,79 @@ def export_report(df, numeric_cols, all_stats, all_outliers, filepath):
     print(f"{GREEN}✔ Report saved →{RESET} {output_file}\n")
     return output_file
 
+# Export Report to a JSON File
+def export_json(df, numeric_cols, all_stats, all_outliers, filepath):
+    import json
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.splitext(os.path.basename(filepath))[0]
+    output_file = f"{base_name}_report_{timestamp}.json"
+
+    report = {
+        "generated": datetime.now().strftime("%Y%m%d_%H%M%S"),
+        "file": filepath,
+        "rows": int(df.shape[0]),
+        "columns": int(df.shape[1]),
+        "all_columns": list(df.columns),
+        "numeric_columns": {}
+    }
+
+    for col in numeric_cols:
+        s = all_stats[col]
+        iqr_out, z_out, low_f, high_f = all_outliers[col]
+
+        report["numeric_columns"][col] = {
+            "stats": s,
+            "iqr_outliers": {
+                "fence_low": low_f,
+                "fence_high": high_f,
+                "count": len(iqr_out),
+                "values": iqr_out
+            },
+            "zscore_outliers": {
+                "count": len(z_out),
+                "values": z_out
+            }
+        }
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"{GREEN}✔ Report saved →{RESET} {output_file}\n")
+    return output_file
+
+
+# Export Report to a CSV File
+def export_csv(df, numeric_cols, all_stats, all_outliers, filepath):
+    import csv
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.splitext(os.path.basename(filepath))[0]
+    output_file = f"{base_name}_report_{timestamp}.csv"
+
+    fieldnames = [
+        "column", "count", "missing", "mean", "median", "std",
+        "min", "max", "q1", "q3", "iqr",
+        "iqr_outlier_count", 'zscore_outlier_count'
+    ]
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for col in numeric_cols:
+            s = all_stats[col]
+            iqr_out, z_out, low_f, high_f = all_outliers[col]
+
+            row = dict(s)
+            row["column"] = col
+            row["iqr_outlier_count"] = len(iqr_out)
+            row["zscore_outlier_count"] = len(z_out)
+            writer.writerow(row)
+
+    print(f"{GREEN}✔ Report saved →{RESET} {output_file}\n")
+    return output_file
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -199,6 +272,11 @@ def main():
         "file",
         nargs="?",
         help="Path to the CSV file"
+    )
+    parser.add_argument(
+        "--export",
+        choices=["txt", "json", "csv"],
+        help="Export report format: txt, json, or csv"
     )
     args = parser.parse_args()
 
@@ -220,7 +298,13 @@ def main():
         all_outliers[col] = detect_outliers(series, all_stats[col])
 
     print_report(df, numeric_cols, all_stats, all_outliers, filepath)
-    export_report(df, numeric_cols, all_stats, all_outliers, filepath)
+
+    if args.export == "txt":
+        export_report(df, numeric_cols, all_stats, all_outliers, filepath)
+    elif args.export == "json":
+        export_json(df, numeric_cols, all_stats, all_outliers, filepath)
+    elif args.export == "csv":
+        export_csv(df, numeric_cols, all_stats, all_outliers, filepath)
 
 if __name__ == "__main__":
     main()
